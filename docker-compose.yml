@@ -1,8 +1,14 @@
 # All ports are bound to 127.0.0.1: the app has no authentication by design
 # (it's a local simulation), so it must not be reachable from the network.
+#
+# Startup order: db (healthy) -> backend (healthy) -> frontend.
+# Every service restarts automatically, so a transient failure (e.g. the
+# backend starting while Docker's network is briefly unavailable) recovers
+# on its own instead of leaving the app down.
 services:
   db:
     image: postgres:16-alpine
+    restart: unless-stopped
     environment:
       POSTGRES_USER: hsa
       POSTGRES_PASSWORD: hsa
@@ -22,6 +28,7 @@ services:
 
   backend:
     build: ./backend
+    restart: unless-stopped
     environment:
       DATABASE_URL: postgresql+psycopg://hsa:hsa@db:5432/hsa
     depends_on:
@@ -29,11 +36,20 @@ services:
         condition: service_healthy
     ports:
       - "127.0.0.1:${HSA_API_PORT:-8000}:8000"
+    healthcheck:
+      # The slim Python image has no curl, so use Python itself.
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health', timeout=2)"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
 
   frontend:
     build: ./frontend
+    restart: unless-stopped
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     ports:
       - "127.0.0.1:${HSA_WEB_PORT:-3000}:80"
 
