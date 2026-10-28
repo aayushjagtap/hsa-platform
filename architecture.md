@@ -4,9 +4,9 @@
 
 ```mermaid
 flowchart LR
-    B["Browser<br/>React + TypeScript"] -->|"/api/*"| P["nginx (Docker)<br/>or Vite dev proxy"]
-    P --> A["FastAPI<br/>routes → services"]
-    A -->|"SQLAlchemy<br/>connection pool"| D[("PostgreSQL 16")]
+    B["Browser<br/>React + TS"] -->|"/api"| P["nginx or<br/>Vite proxy"]
+    P --> A["FastAPI<br/>+ SQLAlchemy"]
+    A --> D[("PostgreSQL")]
 ```
 
 Three pieces, each with one job:
