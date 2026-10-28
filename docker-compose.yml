@@ -1,0 +1,41 @@
+# All ports are bound to 127.0.0.1: the app has no authentication by design
+# (it's a local simulation), so it must not be reachable from the network.
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: hsa
+      POSTGRES_PASSWORD: hsa
+      POSTGRES_DB: hsa
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      # An uncommon host port so it won't clash with a Postgres you already run.
+      # Override with HSA_DB_PORT if it's taken.
+      - "127.0.0.1:${HSA_DB_PORT:-55432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hsa -d hsa"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  backend:
+    build: ./backend
+    environment:
+      DATABASE_URL: postgresql+psycopg://hsa:hsa@db:5432/hsa
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${HSA_API_PORT:-8000}:8000"
+
+  frontend:
+    build: ./frontend
+    depends_on:
+      - backend
+    ports:
+      - "127.0.0.1:${HSA_WEB_PORT:-3000}:80"
+
+volumes:
+  pgdata:
